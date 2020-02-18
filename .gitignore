@@ -96,5 +96,5 @@ ENV/
 docker/environment
 
 # Pycharm
-./idea
-/idea
+.idea/
+idea/
