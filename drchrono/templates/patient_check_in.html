@@ -1,0 +1,17 @@
+  
+{% extends 'base.html' %}
+{% block title %}
+    Patient check in
+{% endblock title %}
+
+{% block body %}
+    <h2>Patient check in</h2>
+    <form action="{%  url 'patient_check_in' %}" method="post">
+            {% csrf_token %}
+
+            <div><input type="text" placeholder="First name" name="first_name" class="form-group"></div>
+            <div><input type="text" placeholder="Last name" name="last_name" class="form-group"></div>
+            <div><input type="text" placeholder="SSN" maxlength="9" name="ssn" class="form-group"></div>
+            <div><button type="submit" class="btn btn-primary">check in</button></div>
+    </form>
+{% endblock body %}

@@ -1,11 +1,33 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Welcome to drchrono</title>
-</head>
-<body>
-<h1>Welcome {{ doctor.first_name }} {{ doctor.last_name }}</h1>
-{{ doctor }}
-</body>
-</html>
+{% extends 'base.html' %}
+{% block title %}
+    Welcome to drchrono
+{% endblock title %}
+{% block body %}
+
+
+<h1>Welcome Dr {{ doctor.first_name }} {{ doctor.last_name }}</h1>
+<h3>{{ doctor.specialty }}</h3>
+
+
+Today's Appointments
+<table>
+<tr>
+    <th>Patient</th>
+    <th>Scheduled Time</th>
+    <th>Reason</th>
+    <th>Recurring Appointment</th>
+    <th>Notes</th>
+
+</tr>
+{% for appointment in appointments %}
+<tr>
+  <th> {{ appointment.patient }}</th>
+  <th> {{ appointment.scheduled_time }}</th>
+  <th> {{ appointment.reason }}</th>
+  <th> {{ appointment.recurring_appointment }}</th>
+  <th> {{ appointment.notes }}</th>
+</tr>
+{% endfor %}
+</table>
+
+{% endblock body %}

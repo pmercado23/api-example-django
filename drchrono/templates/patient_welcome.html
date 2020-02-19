@@ -1,0 +1,19 @@
+  
+{% extends 'base.html' %}
+
+{% block title %}
+    Check In
+{% endblock title %}
+
+{% block body %}
+
+    <h1>Welcome to Dr {{ doctor.last_name }}, {{ doctor.specialty }} MD, office </h1>
+
+    <h2>Patient check in</h2>
+
+    # ToDo: Make this a better page with more info
+
+
+    <a href="{% url 'patient_check_in' %}">Check In </a>
+
+{% endblock body %}
