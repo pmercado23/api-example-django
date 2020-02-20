@@ -5,6 +5,8 @@ from django.views.generic import TemplateView
 from django.views.generic.edit import FormView
 from social_django.models import UserSocialAuth
 from forms import CheckInForm, PatientUpdateProfileForm
+
+from utils import get_token
 from pprint import pprint
 
 
@@ -26,34 +28,25 @@ class DoctorWelcome(TemplateView):
     """
     template_name = 'doctor_welcome.html'
 
-    def get_token(self):
-        """
-        Social Auth module is configured to store our access tokens. This dark magic will fetch it for us if we've
-        already signed in.
-        """
-        oauth_provider = UserSocialAuth.objects.get(provider='drchrono')
-        access_token = oauth_provider.extra_data['access_token']
-        return access_token
-
     def make_api_request(self):
         """
         Use the token we have stored in the DB to make an API request and get doctor details. If this succeeds, we've
         proved that the OAuth setup is working
         """
         # We can create an instance of an endpoint resource class, and use it to fetch details
-        access_token = self.get_token()
+        access_token = get_token()
         api = DoctorEndpoint(access_token)
         # Grab the first doctor from the list; normally this would be the whole practice group, but your hackathon
         # account probably only has one doctor in it.
         return next(api.list())
 
     def get_appointments_on_date(self, date):
-        auth_token = self.get_token()
+        auth_token = get_token()
         appointments = AppointmentEndpoint(auth_token)
         return appointments.list(date=date)
 
     def get_patients(self):
-        auth_token = self.get_token()
+        auth_token = get_token()
         patients = PatientEndpoint(auth_token)
         return patients.list()
 
@@ -83,21 +76,13 @@ class PatientWelcome(TemplateView):
     """
     template_name = 'patient_welcome.html'
 
-    def get_token(self):
-        """
-        ToDo: This is now used more than once, might move to its own file for commenly used code
-        """
-        oauth_provider = UserSocialAuth.objects.get(provider='drchrono')
-        access_token = oauth_provider.extra_data['access_token']
-        return access_token
-
     def make_api_request(self):
         """
         Use the token we have stored in the DB to make an API request and get doctor details. If this succeeds, we've
         proved that the OAuth setup is working
         """
         # We can create an instance of an endpoint resource class, and use it to fetch details
-        access_token = __get_token()
+        access_token = get_token()
         api = DoctorEndpoint(access_token)
         # Grab the first doctor from the list; normally this would be the whole practice group, but your hackathon
         # account probably only has one doctor in it.
@@ -107,7 +92,7 @@ class PatientWelcome(TemplateView):
         kwargs = super(PatientWelcome, self).get_context_data(**kwargs)
         # Hit the API using one of the endpoints just to prove that we can
         # If this works, then your oAuth setup is working correctly.
-        access_token = self.get_token()
+        access_token = get_token()
         doctor_details = DoctorEndpoint(access_token)
 
         kwargs['doctor'] = next(doctor_details.list())
@@ -121,19 +106,11 @@ class PatientCheckIn(FormView):
     success_url = '/patient_update_profile/'
     patient_id = None
 
-    def get_token(self):
-        """
-        ToDo: This is now used more than once, might move to its own file for commenly used code
-        """
-        oauth_provider = UserSocialAuth.objects.get(provider='drchrono')
-        access_token = oauth_provider.extra_data['access_token']
-        return access_token
-
     def form_valid(self, form):
         print('form valid ssn=', form.cleaned_data['ssn'])
         try:
             # gets token to call api
-            token = self.get_token()
+            token = get_token()
             patient_api_result = PatientEndpoint(token)
             patient_list = list(
                 patient_api_result.list(
