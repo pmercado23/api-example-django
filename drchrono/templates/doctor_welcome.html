@@ -21,7 +21,7 @@ Today's Appointments
 </tr>
 {% for appointment in appointments %}
 <tr>
-  <th> {{ appointment.patient }}</th>
+  <th> {{ appointment.first_name }} {{ appointment.last_name }}</th>
   <th> {{ appointment.scheduled_time }}</th>
   <th> {{ appointment.reason }}</th>
   <th> {{ appointment.recurring_appointment }}</th>

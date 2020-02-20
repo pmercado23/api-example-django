@@ -52,12 +52,24 @@ class DoctorWelcome(TemplateView):
         appointments = AppointmentEndpoint(auth_token)
         return appointments.list(date=date)
 
+    def get_patients(self):
+        auth_token = self.get_token()
+        patients = PatientEndpoint(auth_token)
+        return patients.list()
+
     def get_context_data(self, **kwargs):
         kwargs = super(DoctorWelcome, self).get_context_data(**kwargs)
         # Hit the API using one of the endpoints just to prove that we can
         # If this works, then your oAuth setup is working correctly.
         doctor_details = self.make_api_request()
+        patient_list = list(self.get_patients())
         appointment_list = list(self.get_appointments_on_date(date=date.today()))
+
+        for appointment in appointment_list:
+
+            patient = [patient for patient in patient_list if patient.get('id') == appointment.get('patient')][0]
+            appointment['first_name'] = patient.get('first_name')
+            appointment['last_name'] = patient.get('last_name')
 
         kwargs['doctor'] = doctor_details
         kwargs['appointments'] = appointment_list
