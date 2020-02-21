@@ -5,29 +5,56 @@
 {% block body %}
 
 
-<h1>Welcome Dr {{ doctor.first_name }} {{ doctor.last_name }}</h1>
-<h3>{{ doctor.specialty }}</h3>
+    <h1>Welcome Dr {{ doctor.first_name }} {{ doctor.last_name }}</h1>
+    <h3>{{ doctor.specialty }}</h3>
 
 
-Today's Appointments
-<table>
-<tr>
-    <th>Patient</th>
-    <th>Scheduled Time</th>
-    <th>Reason</th>
-    <th>Recurring Appointment</th>
-    <th>Notes</th>
+    Today's Appointments
+    <table>
+        <tr>
+            <th>Patient</th>
+            <th>Scheduled Time</th>
+            <th>Status</th>
+            <th>Reason</th>
+            <th>Recurring Appointment</th>
+            <th>Notes</th>
 
-</tr>
-{% for appointment in appointments %}
-<tr>
-  <th> {{ appointment.first_name }} {{ appointment.last_name }}</th>
-  <th> {{ appointment.scheduled_time }}</th>
-  <th> {{ appointment.reason }}</th>
-  <th> {{ appointment.recurring_appointment }}</th>
-  <th> {{ appointment.notes }}</th>
-</tr>
-{% endfor %}
-</table>
+        </tr>
+        {% for appointment in appointments %}
+            <tr>
+                <th> {{ appointment.first_name }} {{ appointment.last_name }}</th>
+                <th> {{ appointment.scheduled_time }}</th>
+                <th> {{ appointment.status }}</th>
+                <th> {{ appointment.reason }}</th>
+                <th> {{ appointment.recurring_appointment }}</th>
+                <th> {{ appointment.notes }}</th>
+            </tr>
+        {% endfor %}
+    </table>
+
+    <br>
+    <br>
+    Patients Checked-In
+
+    <table>
+        <tr>
+            <th>Patient</th>
+            <th>Arrival Time</th>
+            <th>Scheduled Time</th>
+            <th>Time Waiting</th>
+
+
+        </tr>
+        {% for patients in checked_in %}
+            <tr>
+                <th> {{ patients.first_name }} {{ patients.last_name }}</th>
+                <th> {{ patients.arrival_time }}</th>
+                <th> {{ patients.scheduled_time }}</th>
+                <th> {{ patients.wait_since_arrived }}</th>
+
+            </tr>
+        {% endfor %}
+    </table>
+
 
 {% endblock body %}
