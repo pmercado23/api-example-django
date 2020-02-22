@@ -94,3 +94,7 @@ ENV/
 
 # secret environment stuff
 docker/environment
+
+# Pycharm
+.idea/
+idea/

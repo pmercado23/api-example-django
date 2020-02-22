@@ -1,0 +1,18 @@
+  
+{% extends 'base.html' %}
+
+{% block title %}
+    New Patient
+{% endblock title %}
+
+{% block body %}
+
+    <h1>Welcome to Dr {{ doctor.last_name }}, {{ doctor.specialty }} MD, office </h1>
+
+    <h2>New Patient</h2>
+
+    Please see the front desk to set up as a new patient for DR {{ doctor.last_name }}
+
+    <a href="{% url 'patient_welcome' %}">Check In </a>
+
+{% endblock body %}
