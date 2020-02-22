@@ -7,7 +7,7 @@ from django.utils import timezone
 from social_django.models import UserSocialAuth
 from forms import CheckInForm, PatientDemographicForm
 
-from utils import get_token
+from utils import get_token, get_todays_appointment_by_status, combine_patient_to_appointment
 from models import Appointment
 from pprint import pprint
 
@@ -54,15 +54,20 @@ class DoctorWelcome(TemplateView):
 
     def get_check_in_patients(self, patient_list):
         # getting the list of patents who have check in.
-        checked_in_appointments = Appointment.objects.all().filter(
-            status='Arrived')
-        for appointment in checked_in_appointments:
-            appointment.wait_since_arrived = appointment.get_time_waiting()
-            patient = [patient for patient in patient_list if patient.get('id') == appointment.patient_id][0]
-            appointment.first_name = patient.get('first_name')
-            appointment.last_name = patient.get('last_name')
+        checked_in_appointments = get_todays_appointment_by_status(status='Arrived')
+        return combine_patient_to_appointment(patient_list, checked_in_appointments)
 
-        return checked_in_appointments
+    def get_in_session_patients(self, patient_list):
+        # getting the list of patents who have check in.
+        checked_in_appointments = get_todays_appointment_by_status(status='In Session')
+        return combine_patient_to_appointment(patient_list, checked_in_appointments)
+
+
+    def get_seen_patients(self, patient_list):
+        # getting the list of patents who have check in.
+        checked_in_appointments = get_todays_appointment_by_status(status='Complete')
+        return combine_patient_to_appointment(patient_list, checked_in_appointments)
+
 
     def update_appointment_data(self, appointment_list):
         # here on loading, if there is already data with missing times in it, we populate it here.
@@ -71,7 +76,8 @@ class DoctorWelcome(TemplateView):
                 appointment_id=patient.get('id'),
                 patient_id=patient.get('patient'),
                 status=patient.get('status'),
-                scheduled_time=patient.get('scheduled_time')
+                scheduled_time=patient.get('scheduled_time'),
+                reason=patient.get('reason')
             )
 
             if appointment.status == 'Arrived' and not appointment.arrival_time:
@@ -89,16 +95,16 @@ class DoctorWelcome(TemplateView):
 
         for appointment in appointment_list:
             patient = [patient for patient in patient_list if patient.get('id') == appointment.get('patient')][0]
-            print(patient.get('first_name'))
-            print(patient.get('date_of_birth'))
-            print(patient.get('social_security_number'))
             appointment['first_name'] = patient.get('first_name')
             appointment['last_name'] = patient.get('last_name')
+
         self.update_appointment_data(appointment_list)
 
         kwargs['doctor'] = doctor_details
         kwargs['appointments'] = appointment_list
         kwargs['checked_in'] = self.get_check_in_patients(patient_list=patient_list)
+        kwargs['in_session'] = self.get_in_session_patients(patient_list=patient_list)
+        kwargs['seen'] = self.get_seen_patients(patient_list=patient_list)
 
         return kwargs
 
@@ -111,6 +117,18 @@ class PatientWelcome(View):
     def get(self, request, *args, **kwargs):
         # GET send a blank form for the patient
         template = 'patient_welcome.html'
+        doctor = next(DoctorEndpoint(get_token()).list())
+
+        return render(request, template, {'doctor': doctor})
+
+
+class PatientNew(View):
+    """
+    Response if no patient found
+    """
+    def get(self, request, *args, **kwargs):
+        # GET send a blank form for the patient
+        template = 'patient_new.html'
         doctor = next(DoctorEndpoint(get_token()).list())
 
         return render(request, template, {'doctor': doctor})
@@ -151,11 +169,9 @@ class PatientCheckIn(View):
                         i.get('date_of_birth') == date_of_birth and
                         i.get('social_security_number') == ssn):
                     patient = i
-                print(i)
 
             if not patient:
-                pprint("no patient found")
-                return HttpResponseRedirect('/patient_welcome/')
+                return HttpResponseRedirect('/patient_new/')
                 # handle not finding someone
 
             # here we assume we found the patent, now we check if they have any appointments today
@@ -177,7 +193,7 @@ class PatientCheckIn(View):
                 appointment_id=appointments[0].get('id'),
                 patient_id=patient.get('id'))
 
-            if not created and appointment.status == 'Arrived':
+            if not created and (appointment.status == 'Arrived'):
                 # Here we return that they have already checked in
                 print("already here! cancel or change?")
                 return redirect('patient_demographic_information', patient_id=patient.get('id'))

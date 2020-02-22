@@ -8,6 +8,7 @@ class Appointment(models.Model):
     appointment_id = models.IntegerField()
     patient_id = models.IntegerField()
     status = models.CharField(max_length=50, blank=True, null=True)
+    reason = models.CharField(max_length=50, blank=True, null=True)
     scheduled_time = models.DateTimeField(blank=True, null=True)
     arrival_time = models.DateTimeField(null=True)
     start_time = models.DateTimeField(null=True)
