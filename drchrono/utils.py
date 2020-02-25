@@ -26,4 +26,4 @@ def combine_patient_to_appointment(patient_list, appointment_list):
 
 def check_ssn_format(form_dob):
     r = re.compile('.{3}-.{2}-.{4}')
-    return r.match(form_dob)
+    return bool(r.match(form_dob))

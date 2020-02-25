@@ -9,7 +9,7 @@ import views
 
 urlpatterns = [
     url(r'^setup/$', views.SetupView.as_view(), name='setup'),
-    url(r'^welcome/$', views.DoctorWelcome.as_view(), name='setup'),
+    url(r'^welcome/$', views.DoctorWelcome.as_view(), name='welcome'),
     url(r'^admin/', include(admin.site.urls)),
     url(r'', include('social.apps.django_app.urls', namespace='social')),
     url(r'^patient_welcome/$', views.PatientWelcome.as_view(), name='patient_welcome'),
