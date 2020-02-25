@@ -18,5 +18,6 @@ urlpatterns = [
     url(r'^patient_demographics/(?P<patient_id>\d+)/$', views.PatientDemographicInformation.as_view(),
         name='patient_demographic_information'),
     url(r'^finished/$', views.FinishedView.as_view(), name='finished'),
+    url(r'^toggle-timer/(?P<appointment_id>\d+)/$', views.UpdateAppointmentStatusView.as_view(), name='update_appointment_status'),
 
 ]

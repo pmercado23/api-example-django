@@ -1,6 +1,6 @@
 from django.shortcuts import redirect, HttpResponseRedirect, render
 from django.core.urlresolvers import reverse
-from datetime import date
+from datetime import date, datetime
 from django.views.generic import TemplateView
 from django.views import View
 from django.utils import timezone
@@ -70,12 +70,10 @@ class DoctorWelcome(TemplateView):
         checked_in_appointments = self.get_todays_appointment_by_status(status='In Session')
         return combine_patient_to_appointment(patient_list, checked_in_appointments)
 
-
     def get_seen_patients(self, patient_list):
         # getting the list of patents who have check in.
         checked_in_appointments = self.get_todays_appointment_by_status(status='Complete')
         return combine_patient_to_appointment(patient_list, checked_in_appointments)
-
 
     def update_appointment_data(self, appointment_list):
         # here on loading, if there is already data with missing times in it, we populate it here.
@@ -92,6 +90,18 @@ class DoctorWelcome(TemplateView):
                 appointment.arrival_time = timezone.now()
 
             appointment.save()
+
+    def avg_wait_time(self):
+        appointments = self.get_todays_appointment_by_status(status='Complete')
+        total_seconds = sum([(appointment.start_time - appointment.arrival_time).seconds for appointment in appointments]) / len(
+            appointments)
+        return datetime.fromtimestamp(total_seconds).strftime("%H:%M:%S")
+
+    def avg_appointment_time(self):
+        appointments = self.get_todays_appointment_by_status(status='Complete')
+        total_seconds = sum([(appointment.end_time - appointment.start_time).seconds for appointment in appointments]) / len(
+            appointments)
+        return datetime.fromtimestamp(total_seconds).strftime("%H:%M:%S")
 
     def get_context_data(self, **kwargs):
         kwargs = super(DoctorWelcome, self).get_context_data(**kwargs)
@@ -113,6 +123,8 @@ class DoctorWelcome(TemplateView):
         kwargs['checked_in'] = self.get_check_in_patients(patient_list=patient_list)
         kwargs['in_session'] = self.get_in_session_patients(patient_list=patient_list)
         kwargs['seen'] = self.get_seen_patients(patient_list=patient_list)
+        kwargs['avg_wait_time'] = self.avg_wait_time()
+        kwargs['avg_appointment_time'] = self.avg_appointment_time()
 
         return kwargs
 
@@ -189,20 +201,35 @@ class PatientCheckIn(View):
                 appointment_api.list({'patient': patient.get('id')}, start=today_str,
                                      end=today_str))
 
-            if len(appointments) < 1:
-                print("no appointment today?")
-                # handle no appointment for today found
-            # Handle multiple appointments?
-            appointment_api.update(appointments[0].get('id'), {'status': 'Arrived'})
+            walk_in = form.cleaned_data.get('walk_in')
 
-            # locally set status to Arrived, and arrival_time to right now
-            appointment, created = Appointment.objects.get_or_create(
-                appointment_id=appointments[0].get('id'),
-                patient_id=patient.get('id'))
+            if len(appointments) < 1 or walk_in:
+                print("no appointment today?")
+                doctor = next(DoctorEndpoint(get_token()).list())
+                create_appointment = {
+                    'status': 'Arrived',
+                    'duration': 30,
+                    'date': timezone.now(),
+                    'doctor': doctor.get('id'),
+                    'patient': patient.get('id'),
+                    'scheduled_time': timezone.now(),
+                    'exam_room': 0,
+                    'office': 276816, # hardcoded for now
+                    'notes': 'Walk-In'
+
+                }
+                created_appointment = appointment_api.create(create_appointment)
+                appointment, created = Appointment.objects.create(
+                    appointment_id=created_appointment.get('id'),
+                    patient_id=patient.get('id'))
+            else:
+                appointment_api.update(appointments[0].get('id'), {'status': 'Arrived'})
+                appointment, created = Appointment.objects.get(
+                    appointment_id=appointments[0].get('id'),
+                    patient_id=patient.get('id'))
 
             if not created and (appointment.status == 'Arrived'):
                 # Here we return that they have already checked in
-                print("already here! cancel or change?")
                 return redirect('patient_demographic_information', patient_id=patient.get('id'))
 
             appointment.arrival_time = timezone.now()
@@ -245,8 +272,38 @@ class PatientDemographicInformation(View):
         return render(request, template,
                       {'form': form, 'patient_id': patient_id})
 
+
 class FinishedView(TemplateView):
     """
     The beginning of the OAuth sign-in flow. Logs a user into the kiosk, and saves the token.
     """
     template_name = 'checkin_finished.html'
+
+
+class UpdateAppointmentStatusView(View):
+    def change_status(self, status, appointment):
+        access_token = get_token()
+        appointment_api = AppointmentEndpoint(access_token)
+        if status == "Arrived":
+            appointment_api.update(appointment.appointment_id, {'status': 'In Session'})
+            appointment.start_time = timezone.now()
+            appointment.status = "In Session"
+            appointment.save()
+        elif status == "In Session":
+            appointment_api.update(appointment.appointment_id, {'status': 'Complete'})
+            appointment.end_time = timezone.now()
+            appointment.status = "Complete"
+            appointment.save()
+        else:
+            print("Something went wrong here")
+
+    def update_status(self, appointment_id):
+        appointments = Appointment.objects.filter(appointment_id=appointment_id)
+        for appointment in appointments:
+            self.change_status(appointment.status, appointment)
+
+    def post(self, request, appointment_id):
+        self.update_status(appointment_id)
+        return HttpResponseRedirect('/welcome/')
+
+
