@@ -1,6 +1,5 @@
 from social_django.models import UserSocialAuth
-from models import Appointment
-from django.utils import timezone
+import re
 
 
 def get_token():
@@ -15,15 +14,6 @@ def get_token():
     return access_token
 
 
-def get_todays_appointment_by_status(status):
-    today = timezone.now()
-    return Appointment.objects.all().filter(
-        status=status,
-        scheduled_time__year=today.year,
-        scheduled_time__month=today.month,
-        scheduled_time__day=today.day)
-
-
 def combine_patient_to_appointment(patient_list, appointment_list):
     for appointment in appointment_list:
         patient = [patient for patient in patient_list if patient.get('id') == appointment.patient_id][0]
@@ -32,3 +22,8 @@ def combine_patient_to_appointment(patient_list, appointment_list):
         appointment.first_name = patient.get('first_name')
         appointment.last_name = patient.get('last_name')
     return appointment_list
+
+
+def check_ssn_format(form_dob):
+    r = re.compile('.{3}-.{2}-.{4}')
+    return r.match(form_dob)

@@ -6,13 +6,26 @@
 {% endblock title %}
 
 {% block body %}
-
     <h1>Welcome to Dr {{ doctor.last_name }}, {{ doctor.specialty }} MD, office </h1>
 
     <h2>New Patient</h2>
 
     Please see the front desk to set up as a new patient for DR {{ doctor.last_name }}
 
+    <h3>Redirecting in: <div id="counter">5</div> </h3>
+
+
     <a href="{% url 'patient_welcome' %}">Check In </a>
+
+    <script>
+        setInterval(function() {
+            var div = document.querySelector("#counter");
+            var count = div.textContent * 1 - 1;
+            div.textContent = count;
+            if (count <= 0) {
+                window.location.replace("/patient_welcome/");
+            }
+        }, 1000);
+    </script>
 
 {% endblock body %}

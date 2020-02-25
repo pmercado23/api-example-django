@@ -7,7 +7,7 @@ from django.utils import timezone
 from social_django.models import UserSocialAuth
 from forms import CheckInForm, PatientDemographicForm
 
-from utils import get_token, get_todays_appointment_by_status, combine_patient_to_appointment
+from utils import get_token, combine_patient_to_appointment, check_ssn_format
 from models import Appointment
 from pprint import pprint
 
@@ -52,20 +52,28 @@ class DoctorWelcome(TemplateView):
         patients = PatientEndpoint(auth_token)
         return patients.list()
 
+    def get_todays_appointment_by_status(self, status):
+        today = timezone.now()
+        return Appointment.objects.all().filter(
+            status=status,
+            scheduled_time__year=today.year,
+            scheduled_time__month=today.month,
+            scheduled_time__day=today.day)
+
     def get_check_in_patients(self, patient_list):
         # getting the list of patents who have check in.
-        checked_in_appointments = get_todays_appointment_by_status(status='Arrived')
+        checked_in_appointments = self.get_todays_appointment_by_status(status='Arrived')
         return combine_patient_to_appointment(patient_list, checked_in_appointments)
 
     def get_in_session_patients(self, patient_list):
         # getting the list of patents who have check in.
-        checked_in_appointments = get_todays_appointment_by_status(status='In Session')
+        checked_in_appointments = self.get_todays_appointment_by_status(status='In Session')
         return combine_patient_to_appointment(patient_list, checked_in_appointments)
 
 
     def get_seen_patients(self, patient_list):
         # getting the list of patents who have check in.
-        checked_in_appointments = get_todays_appointment_by_status(status='Complete')
+        checked_in_appointments = self.get_todays_appointment_by_status(status='Complete')
         return combine_patient_to_appointment(patient_list, checked_in_appointments)
 
 
@@ -146,15 +154,14 @@ class PatientCheckIn(View):
     def post(self, request, *args, **kwargs):
         # create a form instance and populate it with data from the request:
         form = CheckInForm(request.POST)
-        # we need to get the list of pacents on the appointment to check if they are checking in or if its a walkin
+        # we need to get the list of pacents on the appointment to check if they are checking in or if its a walk-in
+        data = request.POST.copy()
+        ssn = data.get('ssn')
 
-        if form.is_valid():
-            first_name, last_name, dob, ssn = form.cleaned_data.get('first_name'), \
-                                              form.cleaned_data.get('last_name'), \
-                                              form.cleaned_data.get('dob'), \
-                                              form.cleaned_data.get('ssn')
-            dob_list = dob.split('/')[::-1]
-            date_of_birth = dob_list[0] + "-" + dob_list[2] + "-" + dob_list[1]
+        if form.is_valid() and check_ssn_format(ssn):
+            first_name, last_name, date_of_birth = form.cleaned_data.get('first_name'), \
+                                                   form.cleaned_data.get('last_name'), \
+                                                   form.cleaned_data.get('date').strftime('%Y-%m-%d')
 
             access_token = get_token()
             appointment_api = AppointmentEndpoint(access_token)
@@ -203,6 +210,8 @@ class PatientCheckIn(View):
             appointment.save()
             # redirect to demographic information page
             return redirect('patient_demographic_information', patient_id=patient.get('id'))
+
+        form.add_error('ssn', "Please Enter a Valid SSN in format 123-44-1234")
 
         return render(request, 'patient_check_in.html', {'form': form})
 
