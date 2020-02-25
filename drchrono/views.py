@@ -60,6 +60,14 @@ class DoctorWelcome(TemplateView):
             scheduled_time__month=today.month,
             scheduled_time__day=today.day)
 
+    def get_todays_appointments(self, patient_list):
+        today = timezone.now()
+        appointments = Appointment.objects.all().filter(
+            scheduled_time__year=today.year,
+            scheduled_time__month=today.month,
+            scheduled_time__day=today.day)
+        return combine_patient_to_appointment(patient_list, appointments)
+
     def get_check_in_patients(self, patient_list):
         # getting the list of patents who have check in.
         checked_in_appointments = self.get_todays_appointment_by_status(status='Arrived')
@@ -119,7 +127,7 @@ class DoctorWelcome(TemplateView):
         self.update_appointment_data(appointment_list)
 
         kwargs['doctor'] = doctor_details
-        kwargs['appointments'] = appointment_list
+        kwargs['appointments'] = self.get_todays_appointments(patient_list=patient_list)
         kwargs['checked_in'] = self.get_check_in_patients(patient_list=patient_list)
         kwargs['in_session'] = self.get_in_session_patients(patient_list=patient_list)
         kwargs['seen'] = self.get_seen_patients(patient_list=patient_list)
