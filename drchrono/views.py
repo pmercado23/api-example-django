@@ -5,6 +5,7 @@ from django.views.generic import TemplateView
 from django.views import View
 from django.utils import timezone
 from social_django.models import UserSocialAuth
+from django.forms.models import model_to_dict
 from forms import CheckInForm, PatientDemographicForm
 
 from utils import get_token, combine_patient_to_appointment, check_ssn_format, new_combine_patient_to_appointment
@@ -233,80 +234,82 @@ class PatientCheckIn(View):
         # we need to get the list of pacents on the appointment to check if they are checking in or if its a walk-in
         data = request.POST.copy()
         ssn = data.get('ssn')
+        access_token = get_token()
+        appointment_api = AppointmentEndpoint(access_token)
 
         if form.is_valid() and check_ssn_format(ssn):
             first_name, last_name, date_of_birth = form.cleaned_data.get('first_name'), \
                                                    form.cleaned_data.get('last_name'), \
                                                    form.cleaned_data.get('date').strftime('%Y-%m-%d')
 
-            access_token = get_token()
-            appointment_api = AppointmentEndpoint(access_token)
-            patient_api = PatientEndpoint(access_token)
+            # here we get data from App and Pa django objects instead
+            p = Patient.objects.get(
+                first_name=first_name,
+                last_name=last_name,
+                date_of_birth=date_of_birth,
+                social_security_number=ssn
+            )
+            try:
+                p = Patient.objects.get(
+                    first_name=first_name,
+                    last_name=last_name,
+                    date_of_birth=date_of_birth,
+                    social_security_number=ssn
+                )
+            except Patient.DoesNotExist:
+                p = None
 
-            patients = list(patient_api.list())
-            patient = None
-
-            for i in patients:
-                if (i.get('first_name') == first_name and
-                        i.get('last_name') == last_name and
-                        i.get('date_of_birth') == date_of_birth and
-                        i.get('social_security_number') == ssn):
-                    patient = i
-
-            if not patient:
+            if not p:
                 return HttpResponseRedirect('/patient_new/')
-                # handle not finding someone
 
-            # here we assume we found the patent, now we check if they have any appointments today
+            wi = form.cleaned_data.get('walk_in')
 
-            today = timezone.now()
-            today_str = today.strftime('%m-%d-%y')
-            appointments = list(
-                appointment_api.list({'patient': patient.get('id')}, start=today_str,
-                                     end=today_str))
-
-            walk_in = form.cleaned_data.get('walk_in')
-
-            if len(appointments) < 1 or walk_in:
-                print("no appointment today?")
+            if wi:
                 doctor = next(DoctorEndpoint(get_token()).list())
                 create_appointment = {
                     'status': 'Arrived',
                     'duration': 30,
                     'date': timezone.now(),
                     'doctor': doctor.get('id'),
-                    'patient': patient.get('id'),
+                    'patient': p.patient_id,
                     'scheduled_time': timezone.now(),
                     'exam_room': 0,
-                    'office': 276816, # hardcoded for now
+                    'office': 276816,  # hardcoded for now
                     'notes': 'Walk-In'
 
                 }
                 created_appointment = appointment_api.create(create_appointment)
 
-                print(created_appointment)
                 appointment, created = Appointment.objects.get_or_create(
                     appointment_id=created_appointment.get('id'),
-                    patient_id=patient.get('id'),
+                    patient_id=p.patient_id,
                     scheduled_time=created_appointment.get('scheduled_time'),
                     notes=created_appointment.get('notes')
                 )
-
             else:
-                appointment_api.update(appointments[0].get('id'), {'status': 'Arrived'})
-                appointment = Appointment.objects.get(
-                    appointment_id=appointments[0].get('id'),
-                    patient_id=patient.get('id'))
+                today = timezone.now()
+                try:
+                    appointment = Appointment.objects.get(
+                        patient_id=p.patient_id,
+                        scheduled_time__year=today.year,
+                        scheduled_time__month=today.month,
+                        scheduled_time__day=today.day
+                    )
+                except Appointment.DoesNotExist:
+                    form.add_error('first_name', "We are sorry, but we could not find you on todays list, is this a walk-in?")
+                    return render(request, 'patient_check_in.html', {'form': form})
+
+                appointment_api.update(appointment.appointment_id, {'status': 'Arrived'})
 
             if (appointment.status == 'Arrived'):
                 # Here we return that they have already checked in
-                return redirect('patient_demographic_information', patient_id=patient.get('id'))
+                return redirect('patient_demographic_information', patient_id=p.patient_id)
 
             appointment.arrival_time = timezone.now()
             appointment.status = 'Arrived'
             appointment.save()
             # redirect to demographic information page
-            return redirect('patient_demographic_information', patient_id=patient.get('id'))
+            return redirect('patient_demographic_information', patient_id=p.patient_id)
 
         form.add_error('ssn', "Please Enter a Valid SSN in format 123-44-1234")
 
@@ -316,26 +319,24 @@ class PatientCheckIn(View):
 class PatientDemographicInformation(View):
     # Here we have 2 methods, GET and POST, GET will display the form, and POST will check and store the data
     # First we get and display demographic information and offer to update
-
     def get(self, request, patient_id):
         template = 'patient_demographics.html'
-        access_token = get_token()
-        patient_api = PatientEndpoint(access_token)
-        patient_data = patient_api.fetch(patient_id)
-        form = PatientDemographicForm(initial=patient_data)
+        patient = Patient.objects.get(patient_id=patient_id)
+        form = PatientDemographicForm(initial=model_to_dict(patient))
         return render(request, template,
                       {'form': form, 'patient_id': patient_id})
 
     def post(self, request, patient_id):
         template = 'patient_demographics.html'
-
         # create a form instance and populate it with data from the request:
-        form = PatientDemographicForm(request.POST)
+        patient = Patient.objects.get(patient_id=patient_id)
         # check whether it's valid:
+        form = PatientDemographicForm(request.POST or None, instance=patient)
         if form.is_valid():
             access_token = get_token()
             patient_api = PatientEndpoint(access_token)
             patient_api.update(patient_id, form.cleaned_data)
+            patient.save()
 
             return HttpResponseRedirect('/finished/')
 

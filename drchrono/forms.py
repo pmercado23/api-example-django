@@ -1,4 +1,5 @@
 from django import forms
+from models import Patient
 from django.forms import widgets
 
 
@@ -55,7 +56,8 @@ LANG_CHOICES = (
     ("declined", "Declined")
 )
 
-class PatientDemographicForm(forms.Form):
+
+class PatientDemographicForm(forms.ModelForm):
     first_name = forms.CharField(label='First Name', max_length=150, required=True)
     last_name = forms.CharField(label='Last Name', max_length=150, required=True)
     date_of_birth = forms.DateField(
@@ -66,3 +68,8 @@ class PatientDemographicForm(forms.Form):
     race = forms.ChoiceField(label='Race', choices=RACE_CHOICES, required=False)
     ethnicity = forms.ChoiceField(label='Ethnicity', choices=ETHNICITY_CHOICES, required=False)
     preferred_language = forms.ChoiceField(label='Preferred Language', choices=LANG_CHOICES, required=False)
+
+    class Meta:
+        fields = 'first_name', 'last_name', 'date_of_birth', 'gender', \
+                 'email', 'race', 'ethnicity', 'preferred_language'
+        model = Patient
