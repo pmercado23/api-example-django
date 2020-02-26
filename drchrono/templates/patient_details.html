@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Patient Details
+{% endblock title %}
+
+{% block body %}
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/welcome/">Home</a></li>
+        <li class="breadcrumb-item active">Patient Details</li>
+    </ol>
+
+    <div class="span10" id="content1">
+    <div class="filters well" style="margin-bottom: 10px">
+        <div class="row-fluid">
+            <div class="span2 text-center">
+
+
+
+            </div>
+            <div class="span10">
+                <h3>
+                    {{ patient.first_name }} {{ patient.lastname }}
+                    <span style="margin-left:10px; font-size:16px;">
+              <span style="color:#bbb">(</span>
+                {{ patient.gender }}
+
+              <span style="color:#bbb">|</span>
+
+              48 years old
+
+              <span style="color:#bbb">|</span>
+
+                {{ patient.date_of_birth }}
+
+              <span style="color:#bbb">)</span>
+            </span>
+
+
+                </h3>
+                <hr style="margin: 5px 0px;">
+
+
+            </div>
+        </div>
+
+        <hr style="margin: 3px 0px 10px 0px;">
+    </div>
+    </div>
+
+{% endblock body %}

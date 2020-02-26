@@ -7,8 +7,8 @@ from django.utils import timezone
 from social_django.models import UserSocialAuth
 from forms import CheckInForm, PatientDemographicForm
 
-from utils import get_token, combine_patient_to_appointment, check_ssn_format
-from models import Appointment
+from utils import get_token, combine_patient_to_appointment, check_ssn_format, new_combine_patient_to_appointment
+from models import Appointment, Patient
 from pprint import pprint
 
 from drchrono.endpoints import DoctorEndpoint, PatientEndpoint, AppointmentEndpoint
@@ -22,6 +22,78 @@ class SetupView(TemplateView):
     The beginning of the OAuth sign-in flow. Logs a user into the kiosk, and saves the token.
     """
     template_name = 'kiosk_setup.html'
+
+
+class DataSync(View):
+    """
+    adding data sync endpoint to avoid calling api's on every load
+    """
+
+    def get_appointments_on_date(self, date):
+        auth_token = get_token()
+        appointments = AppointmentEndpoint(auth_token)
+        return list(appointments.list(date=date))
+
+    def get_patients(self):
+        auth_token = get_token()
+        patients = PatientEndpoint(auth_token)
+        return list(patients.list())
+
+    def update_appointment_data(self, patient_list, appointment_list):
+        # here on loading, if there is already data with missing times in it, we populate it here.
+        for appointment in appointment_list:
+            patient = [patient for patient in patient_list if patient.patient_id == appointment.get('patient')][0]
+
+            appointment_obj, created = Appointment.objects.get_or_create(
+                appointment_id=appointment.get('id'),
+                patient_id=patient.patient_id,
+                status=appointment.get('status'),
+                scheduled_time=appointment.get('scheduled_time'),
+                reason=appointment.get('reason'),
+                notes = appointment.get('notes')
+            )
+
+            if appointment_obj.status == 'Arrived' and not appointment_obj.arrival_time:
+                appointment_obj.arrival_time = timezone.now()
+
+            appointment_obj.save()
+
+    def update_patient_data(self, patient_list):
+        # here on loading, if there is already data with missing times in it, we populate it here.
+        for patient in patient_list:
+            Patient.objects.get_or_create(
+                patient_id= patient.get('id'),
+                first_name = patient.get('first_name'),
+                last_name = patient.get('last_name'),
+                middle_name = patient.get('middle_name'),
+                nick_name = patient.get('nick_name'),
+                email=patient.get('email'),
+                gender = patient.get('gender'),
+                ethnicity = patient.get('ethnicity'),
+                date_of_birth = patient.get('date_of_birth'),
+                default_pharmacy = patient.get('default_pharmacy'),
+                cell_phone = patient.get('cell_phone'),
+                patient_photo = patient.get('patient_photo'),
+                preferred_language = patient.get('preferred_language'),
+                race = patient.get('race'),
+                social_security_number = patient.get('social_security_number'),
+                emergency_contact_name = patient.get('emergency_contact_name'),
+                emergency_contact_phone = patient.get('emergency_contact_phone'),
+                emergency_contact_relation = patient.get('emergency_contact_relation')
+            )
+
+        return Patient.objects.all()
+
+
+    def get(self, request, *args, **kwargs):
+        # First get lists from api
+        patient_list = self.get_patients()
+        appointment_list = self.get_appointments_on_date(date=date.today())
+        # then create objects
+        patients = self.update_patient_data(patient_list)
+        self.update_appointment_data(patients, appointment_list)
+
+        return redirect('welcome')
 
 
 class DoctorWelcome(TemplateView):
@@ -52,6 +124,9 @@ class DoctorWelcome(TemplateView):
         patients = PatientEndpoint(auth_token)
         return patients.list()
 
+    def get_all_patients(self):
+        return Patient.objects.all()
+
     def get_todays_appointment_by_status(self, status):
         today = timezone.now()
         return Appointment.objects.all().filter(
@@ -66,47 +141,36 @@ class DoctorWelcome(TemplateView):
             scheduled_time__year=today.year,
             scheduled_time__month=today.month,
             scheduled_time__day=today.day)
-        return combine_patient_to_appointment(patient_list, appointments)
+        return new_combine_patient_to_appointment(patient_list, appointments)
 
     def get_check_in_patients(self, patient_list):
         # getting the list of patents who have check in.
         checked_in_appointments = self.get_todays_appointment_by_status(status='Arrived')
-        return combine_patient_to_appointment(patient_list, checked_in_appointments)
+        return new_combine_patient_to_appointment(patient_list, checked_in_appointments)
 
     def get_in_session_patients(self, patient_list):
         # getting the list of patents who have check in.
         checked_in_appointments = self.get_todays_appointment_by_status(status='In Session')
-        return combine_patient_to_appointment(patient_list, checked_in_appointments)
+        return new_combine_patient_to_appointment(patient_list, checked_in_appointments)
 
     def get_seen_patients(self, patient_list):
         # getting the list of patents who have check in.
         checked_in_appointments = self.get_todays_appointment_by_status(status='Complete')
-        return combine_patient_to_appointment(patient_list, checked_in_appointments)
+        return new_combine_patient_to_appointment(patient_list, checked_in_appointments)
 
-    def update_appointment_data(self, appointment_list):
-        # here on loading, if there is already data with missing times in it, we populate it here.
-        for patient in appointment_list:
-            appointment, created = Appointment.objects.get_or_create(
-                appointment_id=patient.get('id'),
-                patient_id=patient.get('patient'),
-                status=patient.get('status'),
-                scheduled_time=patient.get('scheduled_time'),
-                reason=patient.get('reason')
-            )
-
-            if appointment.status == 'Arrived' and not appointment.arrival_time:
-                appointment.arrival_time = timezone.now()
-
-            appointment.save()
 
     def avg_wait_time(self):
-        appointments = self.get_todays_appointment_by_status(status='Complete')
-        total_seconds = sum([(appointment.start_time - appointment.arrival_time).seconds for appointment in appointments]) / len(
+        appointments = self.get_todays_appointment_by_status(status='Arrived')
+        if len(appointments) <= 0:
+            return datetime.fromtimestamp(0).strftime("%H:%M:%S")
+        total_seconds = sum([(appointment.get_time_waiting()).seconds for appointment in appointments]) / len(
             appointments)
         return datetime.fromtimestamp(total_seconds).strftime("%H:%M:%S")
 
     def avg_appointment_time(self):
         appointments = self.get_todays_appointment_by_status(status='Complete')
+        if len(appointments) <= 0:
+            return datetime.fromtimestamp(0).strftime("%H:%M:%S")
         total_seconds = sum([(appointment.end_time - appointment.start_time).seconds for appointment in appointments]) / len(
             appointments)
         return datetime.fromtimestamp(total_seconds).strftime("%H:%M:%S")
@@ -116,15 +180,7 @@ class DoctorWelcome(TemplateView):
         # Hit the API using one of the endpoints just to prove that we can
         # If this works, then your oAuth setup is working correctly.
         doctor_details = self.make_api_request()
-        patient_list = list(self.get_patients())
-        appointment_list = list(self.get_appointments_on_date(date=date.today()))
-
-        for appointment in appointment_list:
-            patient = [patient for patient in patient_list if patient.get('id') == appointment.get('patient')][0]
-            appointment['first_name'] = patient.get('first_name')
-            appointment['last_name'] = patient.get('last_name')
-
-        self.update_appointment_data(appointment_list)
+        patient_list = Patient.objects.all()
 
         kwargs['doctor'] = doctor_details
         kwargs['appointments'] = self.get_todays_appointments(patient_list=patient_list)
@@ -227,16 +283,22 @@ class PatientCheckIn(View):
 
                 }
                 created_appointment = appointment_api.create(create_appointment)
-                appointment, created = Appointment.objects.create(
+
+                print(created_appointment)
+                appointment, created = Appointment.objects.get_or_create(
                     appointment_id=created_appointment.get('id'),
-                    patient_id=patient.get('id'))
+                    patient_id=patient.get('id'),
+                    scheduled_time=created_appointment.get('scheduled_time'),
+                    notes=created_appointment.get('notes')
+                )
+
             else:
                 appointment_api.update(appointments[0].get('id'), {'status': 'Arrived'})
-                appointment, created = Appointment.objects.get(
+                appointment = Appointment.objects.get(
                     appointment_id=appointments[0].get('id'),
                     patient_id=patient.get('id'))
 
-            if not created and (appointment.status == 'Arrived'):
+            if (appointment.status == 'Arrived'):
                 # Here we return that they have already checked in
                 return redirect('patient_demographic_information', patient_id=patient.get('id'))
 
@@ -315,3 +377,15 @@ class UpdateAppointmentStatusView(View):
         return HttpResponseRedirect('/welcome/')
 
 
+class PatientDetails(View):
+    """
+    Response if no patient found
+    """
+    def get(self, request, patient_id):
+        # GET send a blank form for the patient
+        template = 'patient_details.html'
+        access_token = get_token()
+        patient_api = PatientEndpoint(access_token)
+        patient = patient_api.fetch(patient_id)
+
+        return render(request, template, {'patient': patient})

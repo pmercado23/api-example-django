@@ -1,20 +1,29 @@
-  
 {% extends 'base.html' %}
 {% block title %}
     Patient check in
 {% endblock title %}
 
 {% block body %}
+    <h2>Check-in </h2>
 
-    <div class="container">
-   <div class="col-md-6">
-    <h2>Patient check in</h2>
-    <form action="{%  url 'patient_check_in' %}" method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <input type="submit" value="Submit">
-    </form>
-   </div>
+    <div class="span10" id="content1">
+        <div class="filters well" style="margin-bottom: 10px">
+            <div class="row-fluid">
+                <div class="span2 text-center">
+                </div>
+                <div class="span10">
+                    <form action="{% url 'patient_check_in' %}" method="post">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        <input type="submit" value="Submit">
+                    </form>
+
+
+                </div>
+            </div>
+
+            <hr style="margin: 3px 0px 10px 0px;">
+        </div>
     </div>
 
 {% endblock body %}

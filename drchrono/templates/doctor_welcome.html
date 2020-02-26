@@ -12,8 +12,8 @@
         <div class="col-lg-12">
             <div class="btn-group" role="group" aria-label="...">
                 <div class="btn-group" role="group">
-                    <a href="/welcome/" class="list-group-item list-group-item-action">
-                        <center>REFRESH</center>
+                    <a href="/sync/" class="list-group-item list-group-item-action">
+                        <center>REFRESH DB</center>
                     </a>
                 </div>
             </div>
@@ -44,7 +44,9 @@
                         <tbody>
                         {% for appointment in appointments %}
                             <tr>
-                                <th> {{ appointment.first_name }} {{ appointment.last_name }}</th>
+                                <td>
+                                    <a href="/patient_details/{{ appointment.patient_id }}/">{{ appointment.first_name }} {{ appointment.last_name }}</a>
+                                </td>
                                 <th> {{ appointment.scheduled_time|date:'H:i a' }}</th>
                                 <th> {{ appointment.status }}</th>
                                 <th> {{ appointment.reason }}</th>
