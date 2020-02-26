@@ -1,4 +1,3 @@
-
 import time
 
 import requests
@@ -10,7 +9,7 @@ from social_django.models import UserSocialAuth
 
 from drchrono.endpoints import DoctorEndpoint
 from drchrono.models import Appointment
-from drchrono.views import *
+from drchrono.views import patient_views
 from drchrono import utils
 
 
@@ -24,7 +23,7 @@ class SetupViewTests(TestCase):
 class CheckInViewTests(TestCase):
     # testing check-in view
     def setUp(self):
-        self.view = PatientCheckIn()
+        self.view = patient_views.PatientCheckIn()
 
     def test_get(self):
         # should always return a 200
@@ -34,7 +33,7 @@ class CheckInViewTests(TestCase):
 
 class FinishedViewTests(TestCase):
     def setUp(self):
-        self.view = FinishedView()
+        self.view = patient_views.FinishedView()
     # Testing setup view
     def test_kiosk_setup(self):
         response = self.client.get(reverse('finished'))
