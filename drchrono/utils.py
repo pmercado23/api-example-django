@@ -16,16 +16,6 @@ def get_token():
 
 def combine_patient_to_appointment(patient_list, appointment_list):
     for appointment in appointment_list:
-        patient = [patient for patient in patient_list if patient.get('id') == appointment.patient_id][0]
-        appointment.wait_since_arrived = appointment.get_time_waiting()
-        appointment.appointment_duration = appointment.get_appointment_duration()
-        appointment.first_name = patient.get('first_name')
-        appointment.last_name = patient.get('last_name')
-    return appointment_list
-
-
-def new_combine_patient_to_appointment(patient_list, appointment_list):
-    for appointment in appointment_list:
         patient = [patient for patient in patient_list if patient.patient_id == appointment.patient_id][0]
         appointment.wait_since_arrived = appointment.get_time_waiting()
         appointment.appointment_duration = appointment.get_appointment_duration()

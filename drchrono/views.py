@@ -8,7 +8,7 @@ from social_django.models import UserSocialAuth
 from django.forms.models import model_to_dict
 from forms import CheckInForm, PatientDemographicForm
 
-from utils import get_token, combine_patient_to_appointment, check_ssn_format, new_combine_patient_to_appointment
+from utils import get_token, check_ssn_format, combine_patient_to_appointment
 from models import Appointment, Patient
 from pprint import pprint
 
@@ -142,22 +142,22 @@ class DoctorWelcome(TemplateView):
             scheduled_time__year=today.year,
             scheduled_time__month=today.month,
             scheduled_time__day=today.day)
-        return new_combine_patient_to_appointment(patient_list, appointments)
+        return combine_patient_to_appointment(patient_list, appointments)
 
     def get_check_in_patients(self, patient_list):
         # getting the list of patents who have check in.
         checked_in_appointments = self.get_todays_appointment_by_status(status='Arrived')
-        return new_combine_patient_to_appointment(patient_list, checked_in_appointments)
+        return combine_patient_to_appointment(patient_list, checked_in_appointments)
 
     def get_in_session_patients(self, patient_list):
         # getting the list of patents who have check in.
         checked_in_appointments = self.get_todays_appointment_by_status(status='In Session')
-        return new_combine_patient_to_appointment(patient_list, checked_in_appointments)
+        return combine_patient_to_appointment(patient_list, checked_in_appointments)
 
     def get_seen_patients(self, patient_list):
         # getting the list of patents who have check in.
         checked_in_appointments = self.get_todays_appointment_by_status(status='Complete')
-        return new_combine_patient_to_appointment(patient_list, checked_in_appointments)
+        return combine_patient_to_appointment(patient_list, checked_in_appointments)
 
 
     def avg_wait_time(self):
